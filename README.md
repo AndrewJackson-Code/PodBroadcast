@@ -172,6 +172,7 @@ The response will be JSON-formatted podman container status:
 ### Getting 500 Internal Server Error
 - Check if podman is accessible: `podman ps --format json`
 - Review server logs: `sudo journalctl -u podbroadcast.service -n 50`
+- If running as systemd service with exit code 125: Ensure the service file doesn't have `ReadOnlyPaths=/` set, as podman needs write access to `/run`, `/var/lib/containers`, and other directories
 
 ## License
 
