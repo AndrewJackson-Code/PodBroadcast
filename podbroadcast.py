@@ -38,71 +38,34 @@ class PodBroadcastHandler(BaseHTTPRequestHandler):
             return
         
         # Get podman container status
-        # Support different actions via 'action' query param. Default is 'podman'.
-        action = query_params.get('action', ['podman'])[0]
-
         try:
-            if action == 'mpstat':
-                # Run mpstat 1 1 and pipe to jc mpstat, returning JSON output
-                # We'll run mpstat first and pipe its stdout to jc
-                mpstat_proc = subprocess.run(
-                    ['mpstat', '1', '1'],
-                    capture_output=True,
-                    text=True,
-                    check=True,
-                    timeout=15
-                )
-
-                jc_proc = subprocess.run(
-                    ['jc', 'mpstat'],
-                    input=mpstat_proc.stdout,
-                    capture_output=True,
-                    text=True,
-                    check=True,
-                    timeout=10
-                )
-
-                # Validate JSON
-                parsed = json.loads(jc_proc.stdout)
-                response_data = json.dumps(parsed, indent=2)
-
-                self.send_response(200)
-                self.send_header('Content-Type', 'application/json')
-                self.send_header('Content-Length', str(len(response_data)))
-                self.end_headers()
-                self.wfile.write(response_data.encode('utf-8'))
-
-            else:
-                # Default: podman
-                result = subprocess.run(
-                    ['podman', 'ps','-a', '--format', 'json'],
-                    capture_output=True,
-                    text=True,
-                    check=True,
-                    timeout=10
-                )
-
-                # Parse and re-serialize to ensure valid JSON
-                container_data = json.loads(result.stdout)
-                response_data = json.dumps(container_data, indent=2)
-
-                # Send successful response
-                self.send_response(200)
-                self.send_header('Content-Type', 'application/json')
-                self.send_header('Content-Length', str(len(response_data)))
-                self.end_headers()
-                self.wfile.write(response_data.encode('utf-8'))
-
+            result = subprocess.run(
+                ['podman', 'ps','-a', '--format', 'json'],
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=10
+            )
+            
+            # Parse and re-serialize to ensure valid JSON
+            container_data = json.loads(result.stdout)
+            response_data = json.dumps(container_data, indent=2)
+            
+            # Send successful response
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(response_data)))
+            self.end_headers()
+            self.wfile.write(response_data.encode('utf-8'))
+            
         except subprocess.TimeoutExpired:
-            self.send_error(504, "Timeout executing command")
+            self.send_error(504, "Timeout executing podman command")
         except subprocess.CalledProcessError as e:
-            self.send_error(500, f"Error executing command: {e}")
+            self.send_error(500, f"Error executing podman: {e}")
         except json.JSONDecodeError as e:
-            self.send_error(500, f"Error parsing output JSON: {e}")
-        except FileNotFoundError as e:
-            # Include which command was missing if possible
-            missing = str(e)
-            self.send_error(500, f"Command not found: {missing}")
+            self.send_error(500, f"Error parsing podman output: {e}")
+        except FileNotFoundError:
+            self.send_error(500, "podman command not found")
         except Exception as e:
             self.send_error(500, f"Internal server error: {e}")
 
