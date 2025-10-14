@@ -17,12 +17,15 @@ def mock_podman_command():
     """Create a mock podman script for testing."""
     mock_script = """#!/bin/bash
 # Mock podman command for testing
-if [ "$1" = "ps" ] && [ "$2" = "--format" ] && [ "$3" = "json" ]; then
-    echo '[{"Id":"test123","Names":["test-container"],"Image":"nginx:latest","Status":"Up 1 hour","State":"running"}]'
-else
-    echo "Unknown command" >&2
-    exit 1
+if [ "$1" = "ps" ]; then
+    # Accept both 'ps --format json' and 'ps -a --format json'
+    if printf "%s\n" "$@" | grep -q -- "--format" ; then
+        echo '[{"Id":"test123","Names":["test-container"],"Image":"nginx:latest","Status":"Up 1 hour","State":"running"}]'
+        exit 0
+    fi
 fi
+echo "Unknown command" >&2
+exit 1
 """
     
     # Create mock podman in /tmp
@@ -32,6 +35,37 @@ fi
     os.chmod(mock_podman_path, 0o755)
     
     return mock_podman_path
+
+
+def mock_mpstat_and_jc():
+    """Create mock mpstat and jc scripts for testing."""
+    # Simple mpstat output (very small, enough for jc mock)
+    mpstat_output = """Linux 5.15.0 (test-host)  10/14/25  _x86_64_ (2 CPU)
+
+10:00:00 AM  CPU    %usr   %nice    %sys %iowait    %irq   %soft  %steal   %guest   %idle
+10:00:01 AM  all    1.00    0.00    0.50    0.00    0.00    0.00    0.00     0.00   98.50
+"""
+
+    # mock mpstat script
+    mpstat_path = '/tmp/mpstat'
+    with open(mpstat_path, 'w') as f:
+        f.write(f"""#!/bin/bash
+echo "{mpstat_output}"
+""")
+    os.chmod(mpstat_path, 0o755)
+
+    # mock jc script that simply outputs a small JSON array
+    jc_path = '/tmp/jc'
+    jc_json = '[{"system":"Linux","cpus":2,"stats":[{"time":"10:00:01","cpu":"all","usr":1.0,"sys":0.5,"idle":98.5}]}]'
+    with open(jc_path, 'w') as f:
+        f.write(f"""#!/bin/bash
+cat <<'JSON'
+{jc_json}
+JSON
+""")
+    os.chmod(jc_path, 0o755)
+
+    return mpstat_path, jc_path
 
 
 def start_server(api_key='test-key-123'):
@@ -110,6 +144,27 @@ def test_authorized_access():
         return False
 
 
+def test_mpstat_endpoint():
+    """Test the mpstat action endpoint returns JSON."""
+    print("Test 4: mpstat endpoint (live CPU reading)...")
+    try:
+        response = urllib.request.urlopen('http://127.0.0.1:18080/?key=test-key-123&action=mpstat')
+        data = response.read().decode('utf-8')
+        import json
+        parsed = json.loads(data)
+
+        if isinstance(parsed, list) and len(parsed) > 0:
+            print("  ✓ PASSED: Received valid mpstat JSON response")
+            print(f"    Response: {data[:200]}...")
+            return True
+        else:
+            print("  ✗ FAILED: Invalid mpstat response format")
+            return False
+    except Exception as e:
+        print(f"  ✗ FAILED: {e}")
+        return False
+
+
 def main():
     """Run all tests."""
     print("=" * 60)
@@ -137,10 +192,17 @@ def main():
     try:
         # Run tests
         print("\nRunning tests...")
+        # Create mock mpstat and jc
+        print("\nSetting up mock mpstat and jc...")
+        mpstat_path, jc_path = mock_mpstat_and_jc()
+        print(f"  Mock mpstat at: {mpstat_path}")
+        print(f"  Mock jc at: {jc_path}")
+
         results = [
             test_unauthorized_access(),
             test_wrong_key(),
             test_authorized_access(),
+            test_mpstat_endpoint(),
         ]
         
         # Print summary
@@ -164,6 +226,12 @@ def main():
         server_proc.terminate()
         server_proc.wait(timeout=5)
         os.remove(mock_podman_path)
+        # Remove mocks if they exist
+        try:
+            os.remove(mpstat_path)
+            os.remove(jc_path)
+        except Exception:
+            pass
         print("  ✓ Server stopped and mock cleaned up")
 
 
