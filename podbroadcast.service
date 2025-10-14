@@ -1,0 +1,34 @@
+[Unit]
+Description=PodBroadcast - HTTP server for broadcasting podman container status
+After=network.target
+
+[Service]
+Type=simple
+# Set your API key here or use an environment file
+Environment="PODBROADCAST_KEY=your-secret-key-here"
+Environment="PODBROADCAST_HOST=0.0.0.0"
+Environment="PODBROADCAST_PORT=8080"
+
+# Alternatively, use an environment file (recommended for security)
+# EnvironmentFile=/etc/podbroadcast/podbroadcast.env
+
+# Path to the script - adjust as needed
+ExecStart=/usr/bin/python3 /usr/local/bin/podbroadcast.py
+
+# Run as a non-root user for security (create this user if needed)
+# User=podbroadcast
+# Group=podbroadcast
+
+# Restart on failure
+Restart=on-failure
+RestartSec=10s
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/
+
+[Install]
+WantedBy=multi-user.target
