@@ -40,7 +40,7 @@ class PodBroadcastHandler(BaseHTTPRequestHandler):
         # Get podman container status
         try:
             result = subprocess.run(
-                ['podman', 'ps', '--format', 'json'],
+                ['podman', 'ps','-a', '--format', 'json'],
                 capture_output=True,
                 text=True,
                 check=True,
