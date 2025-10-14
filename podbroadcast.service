@@ -24,11 +24,16 @@ Restart=on-failure
 RestartSec=10s
 
 # Security hardening
+# Note: Podman needs write access to /run, /var/lib/containers, and other directories
+# The ReadOnlyPaths=/ restriction prevents podman from working
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadOnlyPaths=/
+# Commented out ReadOnlyPaths as it prevents podman from functioning
+# ReadOnlyPaths=/
+# Allow podman to write to necessary directories
+ReadWritePaths=/run /var/lib/containers /var/tmp
 
 [Install]
 WantedBy=multi-user.target

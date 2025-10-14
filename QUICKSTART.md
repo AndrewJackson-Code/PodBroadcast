@@ -71,3 +71,6 @@ curl -v "http://localhost:8080/?key=YOUR_KEY"
 # Check what's using port 8080
 sudo netstat -tulpn | grep 8080
 ```
+
+**Common Issues:**
+- **Exit code 125 from podman**: If running as systemd service, ensure `ReadOnlyPaths=/` is commented out in the service file. Podman needs write access to `/run`, `/var/lib/containers`, and `/var/tmp`.
