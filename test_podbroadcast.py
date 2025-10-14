@@ -17,10 +17,10 @@ def mock_podman_command():
     """Create a mock podman script for testing."""
     mock_script = """#!/bin/bash
 # Mock podman command for testing
-if [ "$1" = "ps" ] && [ "$2" = "--format" ] && [ "$3" = "json" ]; then
+if [ "$1" = "ps" ] && [ "$2" = "-a" ] && [ "$3" = "--format" ] && [ "$4" = "json" ]; then
     echo '[{"Id":"test123","Names":["test-container"],"Image":"nginx:latest","Status":"Up 1 hour","State":"running"}]'
 else
-    echo "Unknown command" >&2
+    echo "Unknown command: $@" >&2
     exit 1
 fi
 """
