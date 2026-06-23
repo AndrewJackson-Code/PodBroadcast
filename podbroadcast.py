@@ -2,6 +2,7 @@
 """
 PodBroadcast - A tiny HTTP server for broadcasting podman container status.
 Stores all data in RAM and requires key-based authentication.
+
 """
 
 import json
@@ -82,7 +83,7 @@ def run_server(host='0.0.0.0', port=8080):
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
-        print("\nShutting down server...")
+        print("\nShutting down the server...")
         httpd.shutdown()
 
 
