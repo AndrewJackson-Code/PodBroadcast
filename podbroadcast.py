@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 PodBroadcast - A tiny HTTP server for broadcasting podman container status.
-Stores all data in RAM and requires key-based authentication.
+Fetches container status on demand and requires key-based authentication.
 
 """
 
@@ -13,20 +13,20 @@ from urllib.parse import parse_qs, urlparse
 
 
 class PodBroadcastHandler(BaseHTTPRequestHandler):
-    """HTTP request handler for broadcasting podman container status."""
+    """HTTP request handler that returns current podman container status."""
     
     def log_message(self, format, *args):
-        """Override to log to stderr (RAM-based logging)."""
-        # Logs go to stderr by default, not to disk
+        """Keep BaseHTTPRequestHandler's stderr logging behavior explicit."""
+        # BaseHTTPRequestHandler writes access logs to stderr, not to a file.
         super().log_message(format, *args)
     
     def do_GET(self):
-        """Handle GET requests."""
-        # Parse the URL and query parameters
+        """Authenticate the request and return podman container status as JSON."""
+        # API keys are supplied as query parameters, so parse them before auth.
         parsed_url = urlparse(self.path)
         query_params = parse_qs(parsed_url.query)
         
-        # Check for API key
+        # Refuse all requests if the server was started without a configured key.
         provided_key = query_params.get('key', [None])[0]
         expected_key = os.environ.get('PODBROADCAST_KEY', '')
         
@@ -38,8 +38,8 @@ class PodBroadcastHandler(BaseHTTPRequestHandler):
             self.send_error(401, "Unauthorized - Invalid or missing API key")
             return
         
-        # Get podman container status
         try:
+            # Query podman for every request so responses reflect current state.
             result = subprocess.run(
                 ['podman', 'ps','-a', '--format', 'json'],
                 capture_output=True,
@@ -48,11 +48,12 @@ class PodBroadcastHandler(BaseHTTPRequestHandler):
                 timeout=10
             )
             
-            # Parse and re-serialize to ensure valid JSON
+            # Validate podman's output and pretty-print it for clients.
             container_data = json.loads(result.stdout)
             response_data = json.dumps(container_data, indent=2)
             
-            # Send successful response
+            # Content-Length is measured from the response string, which is ASCII
+            # for the JSON emitted by json.dumps with default ensure_ascii=True.
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.send_header('Content-Length', str(len(response_data)))
@@ -72,7 +73,7 @@ class PodBroadcastHandler(BaseHTTPRequestHandler):
 
 
 def run_server(host='0.0.0.0', port=8080):
-    """Run the HTTP server."""
+    """Start the HTTP server and serve requests until interrupted."""
     server_address = (host, port)
     httpd = HTTPServer(server_address, PodBroadcastHandler)
     
@@ -83,16 +84,17 @@ def run_server(host='0.0.0.0', port=8080):
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
+        # Give the server a chance to stop cleanly on Ctrl+C.
         print("\nShutting down the server...")
         httpd.shutdown()
 
 
 if __name__ == '__main__':
-    # Get configuration from environment variables
+    # Environment variables allow the same script to run locally or as a service.
     host = os.environ.get('PODBROADCAST_HOST', '0.0.0.0')
     port = int(os.environ.get('PODBROADCAST_PORT', '8080'))
     
-    # Check if API key is set
+    # Fail fast rather than starting a server that rejects every request.
     if not os.environ.get('PODBROADCAST_KEY'):
         print("WARNING: PODBROADCAST_KEY environment variable not set!")
         print("Please set it before running the server:")
