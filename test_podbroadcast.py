@@ -110,6 +110,31 @@ def test_authorized_access():
         return False
 
 
+def test_metrics_access():
+    """Test that the metrics endpoint includes containers and CPU metrics."""
+    print("Test 4: CPU metrics...")
+    try:
+        response = urllib.request.urlopen(
+            'http://127.0.0.1:18080/metrics?key=test-key-123'
+        )
+        import json
+        parsed = json.loads(response.read().decode('utf-8'))
+        cpu_usage = parsed['system']['cpu_usage_percent']
+        cpu_temperature = parsed['system']['cpu_temperature_celsius']
+
+        valid_usage = isinstance(cpu_usage, (int, float)) and 0 <= cpu_usage <= 100
+        valid_temperature = cpu_temperature is None or 0 <= cpu_temperature <= 150
+        if isinstance(parsed['containers'], list) and valid_usage and valid_temperature:
+            print("  ✓ PASSED: Received valid container and CPU metrics")
+            return True
+
+        print("  ✗ FAILED: Invalid metrics response")
+        return False
+    except Exception as e:
+        print(f"  ✗ FAILED: {e}")
+        return False
+
+
 def main():
     """Run all tests."""
     print("=" * 60)
@@ -141,6 +166,7 @@ def main():
             test_unauthorized_access(),
             test_wrong_key(),
             test_authorized_access(),
+            test_metrics_access(),
         ]
         
         # Print summary

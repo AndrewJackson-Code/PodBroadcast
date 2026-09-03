@@ -16,6 +16,7 @@
 3. **Test it:**
    ```bash
    curl "http://localhost:8080/?key=$PODBROADCAST_KEY"
+   curl "http://localhost:8080/metrics?key=$PODBROADCAST_KEY"
    ```
 
 ## Install as systemd Service

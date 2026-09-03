@@ -6,6 +6,7 @@ A tiny HTTP server for broadcasting the status of podman containers on the local
 - **Minimal SSD Wear**: All data is stored exclusively in RAM - no writes to disk
 - **Secure Access**: Requires API key authentication for all requests
 - **JSON Format**: Uses `podman ps --format json` for container status
+- **Host Metrics**: Reports aggregate CPU usage and CPU temperature when available
 - **Flexible Deployment**: Can run as a systemd service or via cron job
 - **No Dependencies**: Uses only Python standard library
 
@@ -141,6 +142,33 @@ The response will be JSON-formatted podman container status:
   }
 ]
 ```
+
+The original endpoint remains unchanged for existing clients. To include host CPU
+metrics with the container status, use the `/metrics` endpoint:
+
+```bash
+curl "http://localhost:8080/metrics?key=your-secret-key-here"
+```
+
+```json
+{
+  "containers": [
+    {
+      "Id": "abc123...",
+      "Names": ["my-container"],
+      "State": "running"
+    }
+  ],
+  "system": {
+    "cpu_usage_percent": 14.2,
+    "cpu_temperature_celsius": 52.0
+  }
+}
+```
+
+CPU metrics are read from Linux `/proc` and `/sys` without external dependencies.
+Temperature is `null` when the machine, VM, or kernel does not expose a recognized
+CPU sensor.
 
 ## Security Considerations
 
